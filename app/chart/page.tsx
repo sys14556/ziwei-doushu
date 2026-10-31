@@ -67,7 +67,7 @@ export default function ChartPage() {
           gap: 20, marginTop: 16, alignItems: 'start',
         }}
       >
-        <ChartBoard chart={chart} onPalaceSelect={setSelectedPalace} />       
+        <ChartBoard chart={chart} onPalaceSelect={setSelectedPalace} />
         <DatasetReading chart={chart} />
       </div>
     </main>
