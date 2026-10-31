@@ -271,39 +271,101 @@ const TOPIC_DEFS:{id:string;title:string;names:GongName[];angle:string;questions
   {id:'family',title:'家庭支持与边界',names:['父母宫','子女宫','田宅宫'],angle:'关注双方对长辈相处、照顾与家庭责任的表达，而非预测亲属关系或子女情况。',questions:['与双方家庭交往的频率如何协商？','照护职责和隐私边界如何约定？']},
   {id:'mobility',title:'变化、外出与个人空间',names:['迁移宫','交友宫'],angle:'观察与外界互动、环境变化和自我空间有关的传统象意。',questions:['搬迁、旅行或工作变化如何共同决策？','怎样兼顾共同活动和各自兴趣？']},
 ];
+/**
+ * 解读是基于已识别星曜的传统象意对照，不是心理诊断或婚姻预测。
+ * 《天纪》索引并不等于已验证的规则集。只有人工复核原课程后才能标作课程规则。
+ */
+const DOMAIN_LENS:Record<string,string>={
+  expectations:'自我表达与对伴侣的期待', communication:'沟通分歧及社交边界',
+  recovery:'压力恢复与休息方式',career:'事业投入和家庭责任',
+  resources:'金钱分工与居住安排',family:'长辈、子女和照护边界',
+  mobility:'外出变化、社交与独立空间'
+};
+/** 相同主星可以被讨论，不代表相似人格；不同主星也不代表关系不合。 */
+function topicPerson(who:string, palaces:Palace[], names:GongName[]){
+  const observations:string[]=[];
+  const limits:string[]=[];
+  const paragraphs:string[]=[];
+  const evidence:string[]=[];
+  for(const name of names){
+    const p=by(palaces,name);
+    if(!p){limits.push(`${who}${name}尚未解析，不能补造该宫的星曜与判断。`);continue;}
+    evidence.push(`${who}：${ev(p)}`);
+    if(!p.majors.length){
+      limits.push(`${who}${name}当前没有识别到十四主星；可能是传统空宫，也可能来自排盘字段差异，必须核对原始盘面。`);
+    }else{
+      const use=p.majors.slice(0,3);
+      const pieces=use.map(star=>{
+        const val=STAR_THEMES[star];
+        return val?`${star}常被用来讨论「${val.theme}」`:`${star}需要结合辅星、四化讨论`;
+      });
+      observations.push(`${who}${name}：${use.join('、')}；传统象意涉及${pieces.join('；')}。`);
+      // 正文不是星曜定义的重复：加入本主题与宫位的条件。
+      const context=name==='命宫'?'此处作为传统自我表达的观察点':
+        name==='夫妻宫'?'此处作为传统伴侣期待与关系模式的观察点':
+        name==='福德宫'?'此处作为传统内在感受与休息节奏的观察点':
+        name==='官禄宫'?'此处作为工作、角色承担的观察点':
+        name==='田宅宫'?'此处作为居住及日常生活安排的观察点':
+        name==='财帛宫'?'此处作为资源使用的观察点':
+        name==='交友宫'?'此处作为社交圈与外部支持的观察点':
+        name==='迁移宫'?'此处作为环境变化与外出活动的观察点':
+        name==='父母宫'?'此处作为家庭背景与长辈关系的观察点':
+        name==='子女宫'?'此处作为照护议题及家庭期望的观察点':'此处作为相关传统宫位的观察点';
+      paragraphs.push(`${who}${name}可见${use.join('、')}。${context}，${pieces.join('；')}。这一对应只是解读视角，不能用来推定当事人的真实性格或行为。`);
+    }
+    if(p.four.length){
+      observations.push(`${who}${name}：已识别四化${p.four.join('、')}，但未确认是哪颗星化及属于何种四化体系。`);
+    }else{
+      limits.push(`${who}${name}尚未提取到可核对的四化，相关飞化判断暂不启用。`);
+    }
+    const sha=hasCaution(p);
+    if(sha.length) observations.push(`${who}${name}还可见传统辅煞星${sha.join('、')}，不能据此直接断成败。`);
+  }
+  // 只保留少量最有信息量的段落；原始星曜证据已经完整显示在 evidence 中。
+  const brief=paragraphs.slice(0,3);
+  const lead=brief.length?brief.join(' '):`${who}本专题没有充分识别的主星组合，暂不能做个人化象意解释。`;
+  return {evidence,observations,limits,lead};
+}
+function pairDetail(a:Palace[],b:Palace[],names:GongName[]):string[]{
+  const analysis:string[]=[];
+  for(const name of names){
+    const pa=by(a,name),pb=by(b,name);
+    if(!pa?.majors.length || !pb?.majors.length)continue;
+    const same=pa.majors.filter(s=>pb.majors.includes(s));
+    if(same.length){
+      analysis.push(`${name}对照：双方已识别的主星都包含${same.join('、')}。这是传统象意的共同参照点，不意味着两人的感受、行为或需求必然相同。`);
+    }else{
+      const xa=pa.majors.slice(0,2).join('、'),xb=pb.majors.slice(0,2).join('、');
+      analysis.push(`${name}对照：甲方以${xa}为已识别主星，乙方以${xb}为已识别主星。两种传统象意可能提供不同的讨论角度，不能据此判断关系优劣。`);
+    }
+  }
+  return analysis.slice(0,2);
+}
+function themeContrast(a:Palace[],b:Palace[],names:GongName[],topic:string):string{
+  const getTheme=(ps:Palace[])=>names.flatMap(n=>by(ps,n)?.majors||[])
+    .filter((s,i,all)=>all.indexOf(s)===i).slice(0,3).map(s=>STAR_THEMES[s]?.theme).filter(Boolean);
+  const av=getTheme(a),bv=getTheme(b);
+  if(!av.length||!bv.length)return '部分宫位缺少可用主星，暂不推断双方是否相合；应先核对源盘。';
+  return `在「${DOMAIN_LENS[topic]||'关系互动'}」方面，可将甲方盘面呈现的${av.join('、')}与乙方的${bv.join('、')}作主题对照。重点是核对现实中的需求与约定，而不是用星曜代替双方的实际选择。`;
+}
 function buildDeepTopics(a:Palace[],b:Palace[],focus:string):DeepTopic[]{
   const selected=focus==='伴侣婚恋'?TOPIC_DEFS:TOPIC_DEFS.filter(t=>
     focus==='朋友相处'?['communication','recovery','mobility'].includes(t.id):
     focus==='合伙合作'?['communication','career','resources','mobility'].includes(t.id):
     ['recovery','resources','family'].includes(t.id));
   return selected.map(t=>{
-    const evidence:string[]=[]; const observations:string[]=[]; const limitations:string[]=[];
-    for(const [who,ps] of [['甲方',a],['乙方',b]] as const){
-      for(const name of t.names){
-        const p=by(ps,name);
-        if(!p){limitations.push(`${who}${name}未识别，相关条件未分析。`);continue;}
-        evidence.push(`${who}：${ev(p)}`);
-        if(p.majors.length)observations.push(`${who}${name}主星：${p.majors.join('、')}。`);
-        else limitations.push(`${who}${name}未识别主星；不能直接视作空宫。`);
-        if(p.four.length)observations.push(`${who}${name}有四化标记${p.four.join('、')}，待核对具体化曜及来源体系。`);
-        const sha=hasCaution(p);
-        if(sha.length)observations.push(`${who}${name}识别到传统煞曜${sha.join('、')}，不据此断现实吉凶。`);
-      }
-    }
-    for(const name of t.names){
-      const pa=by(a,name),pb=by(b,name);
-      if(pa?.majors.length && pb?.majors.length){
-        const shared=pa.majors.filter(s=>pb.majors.includes(s));
-        observations.push(shared.length?`双方${name}可见同名主星${shared.join('、')}；这仅是盘面结构。`:`双方${name}的已识别主星没有同名交集；不能据此判断关系优劣。`);
-      }
-    }
-    if(!evidence.length)limitations.push('该专题没有识别到任何对应宫位，因此不作个人化推论。');
-    return {
-      id:t.id,title:t.title,evidence,observations,
-      interpretation:`${t.angle}${evidence.length?'以上是根据实际识别宫位提取的讨论线索，不是对人格或关系结果的确定性判断。':'当前盘面字段不足，暂不能形成该专题的盘面分析。'}`,
-      discussion:t.questions,
-      limitations
-    };
+    const ap=topicPerson('甲方',a,t.names);
+    const bp=topicPerson('乙方',b,t.names);
+    const cross=pairDetail(a,b,t.names);
+    const evidence=[...ap.evidence,...bp.evidence];
+    const observations=[...ap.observations,...bp.observations,...cross];
+    const limitations=[...ap.limits,...bp.limits];
+    if(!evidence.length)limitations.push('该专题没有识别到任何相关宫位，暂不生成个人化断语。');
+    const scope=`专题说明：${t.angle}星曜意象仅用于传统文化研读，不构成对性格、感情或未来结局的预测。`;
+    const interpretation=[scope,`甲方分析：${ap.lead}`,`乙方分析：${bp.lead}`,
+      `双方合参：${cross.join(' ')||'暂缺可比较的双方主星组合。'}${themeContrast(a,b,t.names,t.id)}`].join('\n\n');
+    return {id:t.id,title:t.title,evidence,observations,interpretation,
+      discussion:t.questions,limitations};
   });
 }
 export function buildStudy(aChart:unknown,bChart:unknown,focus='伴侣婚恋'):StudyReport{
