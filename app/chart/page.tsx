@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import BirthForm from '@/components/BirthForm';
 import ChartBoard from '@/components/ChartBoard';
-import InsightPanel from '@/components/InsightPanel';
+import DatasetReading from '@/components/DatasetReading';
 import TimeNav, { type TimeView } from '@/components/TimeNav';
 import { generateChart } from '@/lib/ziwei/algorithm';
 import type { BirthInfo, ZiweiChart, Palace } from '@/lib/ziwei/types';
@@ -67,8 +67,8 @@ export default function ChartPage() {
           gap: 20, marginTop: 16, alignItems: 'start',
         }}
       >
-        <ChartBoard chart={chart} onPalaceSelect={setSelectedPalace} />
-        <InsightPanel chart={chart} selectedPalace={selectedPalace} />
+        <ChartBoard chart={chart} onPalaceSelect={setSelectedPalace} />       
+        <DatasetReading chart={chart} />
       </div>
     </main>
   );
