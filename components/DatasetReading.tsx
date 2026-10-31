@@ -104,8 +104,10 @@ async function loadMonthlyReading(
     if (found) partialLine = '';
   }
 
-  const decompressor = new Decompress((chunk: Uint8Array, final: boolean) => {
-    consumeText(textDecoder.decode(chunk, { stream: !final }), final);
+  // fzstd can omit the `final` flag for intermediate output chunks.
+  const decompressor = new Decompress((chunk: Uint8Array, final?: boolean) => {
+    const isFinal = final === true;
+    consumeText(textDecoder.decode(chunk, { stream: !isFinal }), isFinal);
   });
 
   try {
