@@ -6,7 +6,7 @@ import BirthForm, { type BirthFormState } from '@/components/BirthForm';
 import { formToBirthInfo } from '@/lib/ziwei/share';
 import { generateChart } from '@/lib/ziwei/algorithm';
 import { useTheme } from '@/components/ThemeProvider';
-import { buildStudy, TWELVE, threeWay, type Palace, type Finding, type StudyReport } from '@/lib/ziwei/heming-rules';
+import { buildStudy, TWELVE, threeWay, type Palace, type Finding, type StudyReport, type DeepTopic } from '@/lib/ziwei/heming-rules';
 import TianjiEvidence from '@/components/TianjiEvidence';
 
 const FOCUSES = ['伴侣婚恋','朋友相处','合伙合作','亲子家人'];
@@ -26,6 +26,23 @@ function RuleList({items}:{items:Finding[]}){
     <p style={{fontSize:12,lineHeight:1.8,color:'var(--tx-3)',margin:'9px 0'}}>盘面证据：{it.evidence}</p>
     <p style={{fontSize:13,lineHeight:1.9,color:'var(--tx-2)',margin:0}}>{it.reading}</p>
   </article>)}</div>;
+}
+/** 新规则引擎的 topics 字段只用于研读展示；不改出生信息、起盘或课程 API。 */
+function DeepTopicList({topics}:{topics:DeepTopic[]}){
+  if(!topics.length)return <p style={{fontSize:13,color:'var(--tx-3)'}}>当前未获得深度专题；请核对规则引擎版本与排盘字段。</p>;
+  const listStyle={margin:'8px 0 0',paddingLeft:20,display:'grid',gap:7,lineHeight:1.85,fontSize:13,color:'var(--tx-2)'} as const;
+  return <div style={{display:'grid',gap:12}}>{topics.map((topic,i)=><details key={topic.id} open={i===0} style={{border:'1px solid var(--bdr)',borderRadius:12,background:'var(--bg-card)',overflow:'hidden'}}>
+    <summary style={{cursor:'pointer',padding:'16px 18px',fontSize:15,fontWeight:700,color:'var(--tx-0)'}}>{String(i+1).padStart(2,'0')} · {topic.title}</summary>
+    <div style={{padding:'0 18px 18px',display:'grid',gap:14}}>
+      <p style={{fontSize:13,lineHeight:1.9,margin:0,color:'var(--tx-2)'}}>{topic.interpretation}</p>
+      <div><h4 style={{fontSize:13,margin:'0 0 7px',color:'var(--ac)'}}>实际命盘证据</h4>
+        {topic.evidence.length?<ul style={listStyle}>{topic.evidence.map((v,j)=><li key={j}>{v}</li>)}</ul>:<p style={{fontSize:13,color:'var(--tx-3)'}}>未提取到支持此专题的宫位资料。</p>}
+      </div>
+      {topic.observations.length>0&&<div><h4 style={{fontSize:13,margin:'0 0 7px',color:'var(--ac)'}}>结构观察</h4><ul style={listStyle}>{topic.observations.map((v,j)=><li key={j}>{v}</li>)}</ul></div>}
+      <div><h4 style={{fontSize:13,margin:'0 0 7px',color:'var(--ac)'}}>双方可讨论的问题</h4><ul style={listStyle}>{topic.discussion.map((v,j)=><li key={j}>{v}</li>)}</ul></div>
+      {topic.limitations.length>0&&<div style={{padding:12,borderRadius:9,border:'1px solid var(--bdr)'}}><h4 style={{fontSize:12,margin:'0 0 7px',color:'var(--tx-3)'}}>资料不足与解释边界</h4><ul style={{...listStyle,fontSize:12,color:'var(--tx-3)'}}>{topic.limitations.map((v,j)=><li key={j}>{v}</li>)}</ul></div>}
+    </div>
+  </details>)}</div>;
 }
 function get(p:Palace[],name:string){return p.find(x=>x.name===name);}
 function PalaceTable({report}:{report:StudyReport}){
@@ -93,6 +110,10 @@ export default function HemingPage(){
             <section><h3 style={{fontSize:17,color:'var(--ac)'}}>一、甲方重点宫位及主星象意</h3><RuleList items={report.findingsA}/></section>
             <section><h3 style={{fontSize:17,color:'var(--ac)'}}>二、乙方重点宫位及主星象意</h3><RuleList items={report.findingsB}/></section>
             <section><h3 style={{fontSize:17,color:'var(--ac)'}}>三、双盘互动议题</h3><RuleList items={report.cross}/></section>
+            <section><h3 style={{fontSize:17,color:'var(--ac)'}}>四、深度合参专题（{report.topics?.length??0}项）</h3>
+              <p style={{fontSize:13,lineHeight:1.85,color:'var(--tx-3)',margin:'0 0 12px'}}>逐项展开查看实际盘面证据、主星及四化结构、可讨论的问题与资料局限。仅为传统文化研读，不以星曜推定真实关系结局。</p>
+              <DeepTopicList topics={report.topics??[]}/>
+            </section>
             <TianjiEvidence mode="heming" terms={[...new Set([...report.a,...report.b]
               .filter(p=>['命宫','夫妻宫','福德宫','迁移宫','官禄宫','财帛宫'].includes(p.name))
               .flatMap(p=>[p.name,...p.majors,...p.four])
