@@ -1,0 +1,83 @@
+
+name: Extract Ziwei 1998 Sample
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Install decompression tool
+        run: sudo apt-get update && sudo apt-get install -y zstd
+
+      - name: Download the 1998 dataset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download v4.0-13d \
+            --repo Renhuai123/ziwei-doushu \
+            --pattern 'year-1998.jsonl.zst'
+
+      - name: Extract one example chart
+        shell: bash
+        run: |
+          cat > /tmp/extract_chart.py <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          target = '1998-01-01-0-male'
+          result = None
+
+          for line in sys.stdin:
+              if result is None:
+                  chart = json.loads(line)
+                  if chart.get('k') == target:
+                      result = chart
+
+          if result is None:
+              sys.exit(f'Chart not found: {target}')
+
+          output = pathlib.Path('ziwei-test')
+          output.mkdir(exist_ok=True)
+
+          (output / 'sample.json').write_text(
+              json.dumps(result, ensure_ascii=False, indent=2),
+              encoding='utf-8',
+          )
+
+          topics = result.get('c', {})
+          md = '\n\n'.join(
+              f'## {topic}\n\n{content}'
+              for topic, content in topics.items()
+          )
+
+          attribution = (
+              '数据来源：紫微斗数开源解读数据集 v4.0，作者：王多鱼AI\n'
+              'https://github.com/Renhuai123/ziwei-doushu\n\n'
+          )
+
+          (output / 'sample.md').write_text(
+              f'# {target}\n\n' + attribution + md,
+              encoding='utf-8',
+          )
+
+          print(f'Found {target}; interpretation topics: {len(topics)}')
+          print('Topic fields:', ', '.join(topics))
+          PY
+
+          set -o pipefail
+          zstd -dc --long=27 year-1998.jsonl.zst | python3 /tmp/extract_chart.py
+
+      - name: Upload example files
+        uses: actions/upload-artifact@v4
+        with:
+          name: ziwei-1998-sample
+          path: ziwei-test/
+          retention-days: 7
