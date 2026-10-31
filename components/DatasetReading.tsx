@@ -68,7 +68,9 @@ export default function DatasetReading({
     setStatus('loading');
     setReading(null);
 
-    fetch(`/interpretations/${key}.json`)
+    
+fetch(`https://ziwei-reading-api.y1693623199.workers.dev/api/reading/${encodeURIComponent(key)}`)
+
       .then(async response => {
         if (!response.ok) {
           throw new Error('Reading not found');
