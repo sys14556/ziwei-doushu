@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import TianjiEvidence from '@/components/TianjiEvidence';
 import { Solar } from 'lunar-javascript';
 import { useTheme } from '@/components/ThemeProvider';
 import { SIX, HOURS, calculateTriple, traditionalDate, displayReading, type LeapMode, type ZiMode, type StartMode } from '@/lib/traditional/xiaoliuren';
@@ -113,6 +114,10 @@ export default function XiaoliurenPage(){
           <strong>末宫：{SIX[current.result.endIndex].name} · 传统分类「{SIX[current.result.endIndex].grade}」</strong>
           <p style={{fontSize:13,color:'var(--tx-2)',lineHeight:1.8,margin:'9px 0 0'}}>传统象意：{SIX[current.result.endIndex].image}。{displayReading(current.result.endIndex,topic)}</p>
         </div>
+        <TianjiEvidence mode="xiaoliuren" terms={[
+          '小六壬',SIX[current.result.monthIndex].name,
+          SIX[current.result.dayIndex].name,SIX[current.result.endIndex].name
+        ]}/>
         <p style={{fontSize:12,color:'var(--tx-3)',marginTop:16,lineHeight:1.8}}>六宫的吉阻分类是传统文化语境，不具有预测科学效力。不要将起课结果视作他人的心理、婚姻结局、疾病或财富事实。</p>
       </section>}
       <section style={{...panel,marginTop:18}}><h2 style={{fontSize:16,margin:'0 0 16px'}}>六宫 · 掌诀位置</h2><div className="lr-grid" style={{display:'grid',gridTemplateColumns:'repeat(3,minmax(0,1fr))',gap:10}}>{SIX.map((p,i)=><div key={p.name} style={{padding:13,border:`1px solid ${current?.result.endIndex===i?p.colour:'var(--bdr)'}`,borderRadius:10}}><strong style={{color:p.colour}}>{i+1}. {p.name}</strong><p style={{fontSize:12,color:'var(--tx-3)',margin:'7px 0 3px'}}>{p.position} · {p.wuxing} · {p.deity}</p><p style={{fontSize:12,color:'var(--tx-2)',lineHeight:1.6,margin:0}}>{p.image}</p></div>)}</div></section>
