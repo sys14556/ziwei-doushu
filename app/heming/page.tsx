@@ -34,7 +34,7 @@ function DeepTopicList({topics}:{topics:DeepTopic[]}){
   return <div style={{display:'grid',gap:12}}>{topics.map((topic,i)=><details key={topic.id} open={i===0} style={{border:'1px solid var(--bdr)',borderRadius:12,background:'var(--bg-card)',overflow:'hidden'}}>
     <summary style={{cursor:'pointer',padding:'16px 18px',fontSize:15,fontWeight:700,color:'var(--tx-0)'}}>{String(i+1).padStart(2,'0')} · {topic.title}</summary>
     <div style={{padding:'0 18px 18px',display:'grid',gap:14}}>
-      <p style={{fontSize:13,lineHeight:1.9,margin:0,color:'var(--tx-2)'}}>{topic.interpretation}</p>
+      <p style={{fontSize:13,lineHeight:1.9,whiteSpace:'pre-line',margin:0,color:'var(--tx-2)'}}>{topic.interpretation}</p>
       <div><h4 style={{fontSize:13,margin:'0 0 7px',color:'var(--ac)'}}>实际命盘证据</h4>
         {topic.evidence.length?<ul style={listStyle}>{topic.evidence.map((v,j)=><li key={j}>{v}</li>)}</ul>:<p style={{fontSize:13,color:'var(--tx-3)'}}>未提取到支持此专题的宫位资料。</p>}
       </div>
