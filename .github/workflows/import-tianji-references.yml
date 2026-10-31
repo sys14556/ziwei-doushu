@@ -1,0 +1,57 @@
+name: Sync Tianji citations (metadata only)
+
+# Important: workflow_dispatch works only after this file exists on main.
+# A push to tianji-corpus runs immediately while it is a development branch.
+on:
+  push:
+    branches:
+      - tianji-corpus
+    paths:
+      - .github/workflows/import-tianji-references.yml
+      - scripts/import-tianji.mjs
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-index:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout target branch
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Download upstream entries.jsonl
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 --silent --show-error \
+            https://raw.githubusercontent.com/Renhuai123/nihai-tianji-corpus/main/data/entries.jsonl \
+            -o /tmp/tianji-entries.jsonl
+          test -s /tmp/tianji-entries.jsonl
+          echo "Source size: $(wc -c < /tmp/tianji-entries.jsonl) bytes"
+      - name: Create metadata-only citation index
+        run: node scripts/import-tianji.mjs /tmp/tianji-entries.jsonl
+      - name: Validate generated index
+        shell: bash
+        run: |
+          node -e "const x=require('./data/tianji/index.json'); if(x.count<4000 || x.mode!=='references')process.exit(1); console.log('Verified entries:',x.count)"
+      - name: Commit index to development branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/tianji/index.json
+          if git diff --cached --quiet; then
+            echo "Index unchanged"
+          else
+            git commit -m "chore: sync Tianji citation index (no quotes)"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
