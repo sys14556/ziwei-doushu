@@ -40,11 +40,14 @@ export async function searchTianji(input:SearchInput):Promise<{configured:boolea
   if(!e||typeof e.book!=='string')continue;
   const text=[e.h2,e.h3,e.quote,...(Array.isArray(e.terms)?e.terms:[])].join(' ');
   const matches=terms.filter(t=>text.includes(t));
-  const taggedXiao=[e.h2,e.h3].some(v=>/小六壬|小六任/.test(v||''));
+  // The corpus files the relevant p25 teaching under the h2 title “六壬”,
+  // not “小六壬”. Require an exact section heading so that “六神”,
+  // “金钱卦”, “测字”, etc. cannot leak into this mode.
+  const taggedXiao=[e.h2,e.h3].some(v=>/^(?:六壬|六壬法|小六壬|小六任|小六壬法)$/.test((v||'').trim()));
   const mentionedXiao=/小六壬|小六任/.test(text) && !/金钱卦|测字|六神|铁板/.test(`${e.h2} ${e.h3}`);
   const isXiao=/^10-/.test(e.book)&&(taggedXiao||mentionedXiao);
-  // Only explicitly identified Xiaoliuren records can support the small-six-ren panel;
-  // other fortune-telling methods in book 10 must not be relabelled as Xiaoliuren.
+  // This is course-reference retrieval, not proof that a particular reading
+  // (especially a three-number variant) is taught in the cited lesson.
   if(xiao&&!isXiao)continue;
   if(!xiao&&!/^(01-|02-|03-|04-|07-)/.test(e.book))continue;
   if(!matches.length && !(xiao&&isXiao))continue;
@@ -53,7 +56,7 @@ export async function searchTianji(input:SearchInput):Promise<{configured:boolea
   results.push({
    id:e.id, book:e.book, heading:[e.h2,e.h3].filter(Boolean).join(' / ')||e.book,
    terms:matches,score,
-   reason:matchesText?`材料文字命中：${matchesText}`:'材料章节标注小六壬',
+   reason:matchesText?`材料文字命中：${matchesText}`:'《天纪》占断·六壬章节关联（需核对起课方法）',
    url:sourceUrl(e),
    ...(typeof e.quote==='string'?{quote:e.quote.slice(0,90)}:{})
   });
