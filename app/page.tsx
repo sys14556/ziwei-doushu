@@ -492,10 +492,10 @@ export default function HomePage() {
           <ThemeToggle />
           <motion.button
             whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-            onClick={() => router.push('/heming')}
+            onClick={() => router.push('/gongju')}
             className="text-[11px] sm:text-xs px-2.5 sm:px-4 py-1 sm:py-1.5 rounded-full transition-all duration-300"
             style={{ border: `1px solid ${c.navBorder}`, color: c.textMuted }}>
-            合盘
+            工具箱
           </motion.button>
           <motion.button
             whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
@@ -653,6 +653,55 @@ export default function HomePage() {
           <motion.div animate={{ y: [0, 6, 0] }} transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
             className="w-px h-8" style={{ background: `linear-gradient(to bottom, ${c.scrollLine}, transparent)` }} />
         </motion.div>
+      </section>
+
+      {/* ══ 命理工具中心：三项独立功能，复用现有站点 ══ */}
+      <section id="tools" className="relative z-10 px-5 sm:px-8 py-16 lg:py-20" style={{ background: c.altSection }}>
+        <div className="max-w-5xl mx-auto">
+          <FadeIn className="text-center mb-10">
+            <div className="text-[10px] tracking-[0.45em] uppercase mb-3" style={{ color: c.tagText }}>
+              Traditional Practice · Tools
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-[0.14em] mb-3" style={{ color: c.textPrimary }}>
+              传统命理工具
+            </h2>
+            <p className="text-xs sm:text-sm leading-relaxed" style={{ color: c.textMuted }}>
+              紫微排盘、双人合盘、小六壬，一站查看
+            </p>
+          </FadeIn>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {[
+              { label: '紫微斗数', mark: '☯', href: '/chart', eyebrow: '正式功能', desc: '查看单人命盘、四化、大限流年与十三维解读。' },
+              { label: '双人合盘', mark: '♡', href: '/heming', eyebrow: '基础对照版', desc: '输入双方出生信息，对照传统紫微重点宫位；《天纪》专项规则待核验。' },
+              { label: '小六壬', mark: '✦', href: '/xiaoliuren', eyebrow: '独立起课', desc: '支持农历月日时与三数字起课，展示六宫落点和传统象意。' },
+            ].map((item, i) => (
+              <FadeIn key={item.href} delay={i * 0.08}>
+                <motion.button
+                  type="button"
+                  onClick={() => router.push(item.href)}
+                  whileHover={{ y: -4 }} whileTap={{ scale: 0.98 }}
+                  className="w-full h-full rounded-2xl text-left p-6 sm:p-7 transition-colors duration-300"
+                  style={{ background: c.cardBg, border: `1px solid ${c.cardBorder}`, boxShadow: c.cardShadow, cursor: 'pointer' }}>
+                  <div className="text-3xl mb-4" style={{ color: c.goldSolid }}>{item.mark}</div>
+                  <span className="text-[10px] tracking-[0.2em]" style={{ color: c.tagText }}>{item.eyebrow}</span>
+                  <div className="text-lg font-semibold tracking-[0.1em] mt-2 mb-3" style={{ color: c.textPrimary }}>{item.label}</div>
+                  <p className="text-xs leading-7 min-h-16" style={{ color: c.textMuted }}>{item.desc}</p>
+                  <div className="text-xs font-medium tracking-wider mt-5" style={{ color: c.goldSolid }}>进入功能 →</div>
+                </motion.button>
+              </FadeIn>
+            ))}
+          </div>
+          <div className="text-center mt-7">
+            <motion.button
+              type="button"
+              whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+              onClick={() => router.push('/gongju')}
+              className="text-xs px-6 py-3 rounded-full"
+              style={{ border: `1px solid ${c.goldLine}`, color: c.goldSolid }}>
+              查看全部工具 →
+            </motion.button>
+          </div>
+        </div>
       </section>
 
       {/* ══ 哲学引言 ══════════════════════════════════════ */}
