@@ -4,160 +4,120 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Solar } from 'lunar-javascript';
 import { useTheme } from '@/components/ThemeProvider';
+import { SIX, HOURS, calculateTriple, traditionalDate, displayReading, type LeapMode, type ZiMode, type StartMode } from '@/lib/traditional/xiaoliuren';
 
-type NumberMode = 'date' | 'number';
-type Palace = { name: string; element: string; meaning: string; hint: string; color: string };
-const PALACES: Palace[] = [
-  { name: '大安', element: '木', meaning: '安稳、守成、平和', hint: '适合先稳定节奏、理顺当前的安排。', color: '#26826a' },
-  { name: '留连', element: '水', meaning: '拖延、牵绊、反复', hint: '提醒耐心核实进展，不必急于求结果。', color: '#487cac' },
-  { name: '速喜', element: '火', meaning: '消息、转机、迅速', hint: '可以留意进展和及时沟通的机会。', color: '#b76839' },
-  { name: '赤口', element: '金', meaning: '争执、口舌、分歧', hint: '注意表达方式，重要沟通尽量确认事实。', color: '#b04a4a' },
-  { name: '小吉', element: '木', meaning: '和合、助力、小成', hint: '适合把任务拆小、借助合作逐步推进。', color: '#2f9186' },
-  { name: '空亡', element: '土', meaning: '落空、未明、不确定', hint: '先核对条件和信息，不宜只凭期待作决定。', color: '#79738d' },
+type Mode='date'|'numbers';
+type Calendar='solar'|'lunar';
+type ResultState={result:ReturnType<typeof calculateTriple>;detail:string;modeLabel:string}|{error:string};
+const SOURCES=[
+  {label:'《天纪》六壬法教学转述（含农历四月初五戌时示例）',url:'https://www.woniuapp.cn/videos/2/4.html'},
+  {label:'小六壬掌诀位置与月日时起数通行说明',url:'https://jiugongbagua.com/xueguan/bushi-xiaoliuren/xiaoliuren-zhangjue/'},
+  {label:'闰月与起宫口径差异说明',url:'https://mingge.org/compendium/xiaoliuren/method'},
 ];
-const HOUR_NAMES = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
-const CYCLE = PALACES.length;
-function calculate(month: number, day: number, hourIndex: number) {
-  const start = (month - 1) % CYCLE;
-  const middle = (start + day - 1) % CYCLE;
-  const finish = (middle + hourIndex) % CYCLE;
-  return [start, middle, finish] as const;
+function validDate(text:string){
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(text))return false;
+  const [y,m,d]=text.split('-').map(Number);
+  const x=new Date(Date.UTC(y,m-1,d));
+  return x.getUTCFullYear()===y && x.getUTCMonth()===m-1 && x.getUTCDate()===d;
 }
-function isValidDate(text: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return false;
-  const [y, m, d] = text.split('-').map(Number);
-  const date = new Date(Date.UTC(y, m - 1, d));
-  return date.getUTCFullYear() === y && date.getUTCMonth() === m - 1 && date.getUTCDate() === d;
+function nextDay(text:string):string{
+  const [y,m,d]=text.split('-').map(Number);
+  const dt=new Date(Date.UTC(y,m-1,d+1));
+  return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth()+1).padStart(2,'0')}-${String(dt.getUTCDate()).padStart(2,'0')}`;
 }
-
-export default function XiaoliurenPage() {
-  const { theme } = useTheme();
-  const isDark = theme === 'dark';
-  const [mode, setMode] = useState<NumberMode>('date');
-  const [calendar, setCalendar] = useState<'solar' | 'lunar'>('solar');
-  const [solarDate, setSolarDate] = useState('');
-  const [lunarMonth, setLunarMonth] = useState(9);
-  const [lunarDay, setLunarDay] = useState(1);
-  const [hour, setHour] = useState(9);
-  const [num1, setNum1] = useState(1);
-  const [num2, setNum2] = useState(1);
-  const [num3, setNum3] = useState(1);
-  const [question, setQuestion] = useState('');
-  const [computed, setComputed] = useState(false);
-  // Resolve the visitor's local calendar date on the client to avoid a stale hard-coded default.
-  useEffect(() => {
-    const now = new Date();
-    const y = now.getFullYear();
-    const m = String(now.getMonth() + 1).padStart(2, '0');
-    const d = String(now.getDate()).padStart(2, '0');
-    setSolarDate(`${y}-${m}-${d}`);
+export default function XiaoliurenPage(){
+  const {theme}=useTheme();
+  const dark=theme==='dark';
+  const [mode,setMode]=useState<Mode>('date');
+  const [calendar,setCalendar]=useState<Calendar>('solar');
+  const [solarDate,setSolarDate]=useState('2026-10-31');
+  const [lunarMonth,setLunarMonth]=useState(9);
+  const [lunarDay,setLunarDay]=useState(22);
+  const [isLeap,setIsLeap]=useState(false);
+  const [hour,setHour]=useState(20);
+  const [numbers,setNumbers]=useState<[number,number,number]>([1,1,1]);
+  const [question,setQuestion]=useState('');
+  const [topic,setTopic]=useState('一般事项');
+  const [ziMode,setZiMode]=useState<ZiMode>('same-day');
+  const [leapMode,setLeapMode]=useState<LeapMode>('same');
+  const [startMode,setStartMode]=useState<StartMode>('daan');
+  const [showVariants,setShowVariants]=useState(false);
+  const [done,setDone]=useState(false);
+  useEffect(()=>{
+    const now=new Date();
+    setSolarDate(`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`);
     setHour(now.getHours());
-  }, []);
-  const state = useMemo(() => {
-    try {
-      if (mode === 'number') {
-        if (![num1, num2, num3].every(n => Number.isInteger(n) && n > 0 && n <= 9999)) return { error: '请输入 1–9999 的三个正整数。' } as const;
-        const [a, b, c] = calculate(num1, num2, num3 - 1);
-        return { a, b, c, summary: `三数字起课：${num1}、${num2}、${num3}` } as const;
+  },[]);
+  const state=useMemo<ResultState>(()=>{
+    try{
+      if(mode==='numbers'){
+        const result=calculateTriple(...numbers,startMode);
+        return {result,detail:`按顺数三数字 ${numbers.join('、')} 起课`,modeLabel:'三数字'};
       }
-      let month = lunarMonth;
-      let day = lunarDay;
-      let leapNotice = '';
-      if (calendar === 'solar') {
-        if (!isValidDate(solarDate)) return { error: '请选择有效的公历日期。' } as const;
-        const [y, m, d] = solarDate.split('-').map(Number);
-        const lunar = Solar.fromYmd(y, m, d).getLunar();
-        const lunarMonthSigned = lunar.getMonth();
-        month = Math.abs(lunarMonthSigned);
-        day = lunar.getDay();
-        if (lunarMonthSigned < 0) leapNotice = '（闰月按同月序号计算；其他传承可能采用不同取法）';
+      if(calendar==='lunar'&&hour===23&&ziMode==='next-day')return {error:'手工农历输入时无法自动判断月末跨月。请切换公历自动换算，或将子时换日设为“不换日”。'};
+      let m=lunarMonth,d=lunarDay,leap=isLeap;
+      const dayUsed=hour===23&&ziMode==='next-day'?nextDay(solarDate):solarDate;
+      if(calendar==='solar'){
+        if(!validDate(solarDate))return {error:'公历日期无效。'};
+        const [y,mo,da]=dayUsed.split('-').map(Number);
+        const lunar=Solar.fromYmd(y,mo,da).getLunar();
+        m=Math.abs(lunar.getMonth());d=lunar.getDay();leap=lunar.getMonth()<0;
       }
-      if (!Number.isInteger(month) || month < 1 || month > 12 || !Number.isInteger(day) || day < 1 || day > 30)
-        return { error: '农历月份请输入 1–12，日期请输入 1–30。' } as const;
-      if (!Number.isInteger(hour) || hour < 0 || hour > 23) return { error: '请选择正确小时。' } as const;
-      const hourIndex = Math.floor(((hour + 1) % 24) / 2); // 23:00~00:59 = 子时
-      const [a, b, c] = calculate(month, day, hourIndex);
-      return { a, b, c, summary: `农历${month}月${day}日 · ${HOUR_NAMES[hourIndex]}时${leapNotice}` } as const;
-    } catch {
-      return { error: '日期换算失败，请改用手动输入农历月、日。' } as const;
-    }
-  }, [mode, calendar, solarDate, lunarMonth, lunarDay, hour, num1, num2, num3]);
-  const show = computed && !('error' in state);
-  const panel = {
-    background: isDark ? 'rgba(255,255,255,.045)' : 'rgba(255,255,255,.88)',
-    border: '1px solid var(--bdr)', borderRadius: 16, padding: 22,
-  };
-  const formInput = { border: '1px solid var(--bdr)', borderRadius: 9, padding: '10px 12px', color: 'var(--tx-0)', background: 'var(--bg-card)', width: '100%', boxSizing: 'border-box' as const };
-  return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg-0)', color: 'var(--tx-0)' }}>
-      <header style={{ display: 'flex', flexWrap: 'wrap', gap: 18, padding: '16px 24px', borderBottom: '1px solid var(--bdr)' }}>
-        <Link href="/gongju" style={{ color: 'var(--tx-2)' }}>← 全部工具</Link>
-        <Link href="/chart" style={{ color: 'var(--tx-2)' }}>紫微排盘</Link>
-        <Link href="/heming" style={{ color: 'var(--tx-2)' }}>双人合盘</Link>
-        <span style={{ color: 'var(--ac)', fontWeight: 700 }}>小六壬</span>
-      </header>
-      <main style={{ maxWidth: 880, margin: '0 auto', padding: '35px 20px 85px' }}>
-        <div style={{ textAlign: 'center', marginBottom: 26 }}>
-          <div style={{ fontSize: 32, color: 'var(--ac)' }}>☯</div>
-          <h1 style={{ fontSize: 28, margin: '10px 0' }}>小六壬 · 六宫起课</h1>
-          <p style={{ fontSize: 13, color: 'var(--tx-3)', lineHeight: 1.8 }}>采用常见的“大安起正月、月上起日、日上起时”算法，展示月宫、日宫和时宫全过程。</p>
+      if(!Number.isInteger(m)||m<1||m>12||!Number.isInteger(d)||d<1||d>30)return {error:'请输入有效农历月份（1–12）和日期（1–30）。'};
+      const effectiveMonth=leap&&leapMode==='next'?(m%12)+1:m;
+      const result=traditionalDate(effectiveMonth,d,hour,startMode);
+      const note=leap?`，闰月按${leapMode==='same'?'本月序数':'下一月序数'}起数`:'';
+      const dateShift=hour===23&&ziMode==='next-day'?'（23点换次日）':'';
+      return {result,detail:`农历${leap?'闰':''}${m}月${d}日 · ${HOURS[Math.floor(((hour+1)%24)/2)]}时${dateShift}${note}。起数月${effectiveMonth}、日${d}、时辰序数${Math.floor(((hour+1)%24)/2)+1}。`,modeLabel:'月日时'};
+    }catch(err){return {error:err instanceof Error?err.message:'计算失败，请检查输入的日期。'};}
+  },[mode,calendar,solarDate,lunarMonth,lunarDay,isLeap,hour,numbers,ziMode,leapMode,startMode]);
+  const current=done && 'result' in state?state:null;
+  const panel={background:dark?'rgba(255,255,255,.04)':'rgba(255,255,255,.90)',border:'1px solid var(--bdr)',borderRadius:16,padding:22} as const;
+  const input={background:'var(--bg-card)',border:'1px solid var(--bdr)',borderRadius:9,padding:'10px 12px',color:'var(--tx-0)',width:'100%',boxSizing:'border-box' as const};
+  const btn=(active:boolean)=>({padding:'10px 15px',borderRadius:9,border:'1px solid var(--bdr)',background:active?'var(--ac)':'var(--bg-card)',color:active?'#fff':'var(--tx-2)',cursor:'pointer'}) as const;
+  function changeNumber(index:number,v:number){setNumbers(p=>p.map((x,i)=>i===index?v:x) as [number,number,number]);setDone(false);}
+  return <div style={{minHeight:'100vh',background:'var(--bg-0)',color:'var(--tx-0)'}}>
+    <header style={{display:'flex',gap:18,flexWrap:'wrap',padding:'15px 22px',borderBottom:'1px solid var(--bdr)',fontSize:13}}><Link href="/" style={{color:'var(--tx-2)'}}>← 工具箱首页</Link><Link href="/chart" style={{color:'var(--tx-2)'}}>紫微排盘</Link><Link href="/heming" style={{color:'var(--tx-2)'}}>双人合盘</Link><b style={{color:'var(--ac)'}}>小六壬</b></header>
+    <main style={{maxWidth:930,margin:'auto',padding:'32px 18px 75px'}}>
+      <div style={{textAlign:'center',marginBottom:27}}><div style={{fontSize:30,color:'var(--ac)'}}>☯</div><h1 style={{fontSize:27}}>小六壬 · 掐指起课</h1><p style={{fontSize:13,lineHeight:1.9,color:'var(--tx-3)'}}>默认采用倪海厦《天纪》六壬法教学中可核对的“大安起月、月上起日、日上起时”顺数口径，保留三数字变体和流派差异说明。</p></div>
+      <section style={panel}>
+        <div style={{display:'flex',gap:10,flexWrap:'wrap',marginBottom:20}}><button type="button" style={btn(mode==='date')} onClick={()=>{setMode('date');setDone(false);}}>农历月日时</button><button type="button" style={btn(mode==='numbers')} onClick={()=>{setMode('numbers');setDone(false);}}>三数字起课</button></div>
+        {mode==='date'?<>
+          <div style={{display:'flex',gap:16,flexWrap:'wrap',marginBottom:18,fontSize:13}}><label><input type="radio" checked={calendar==='solar'} onChange={()=>{setCalendar('solar');setDone(false);}}/> 公历自动换农历</label><label><input type="radio" checked={calendar==='lunar'} onChange={()=>{setCalendar('lunar');setDone(false);}}/> 手填农历</label></div>
+          {calendar==='solar'?<label style={{display:'block',fontSize:13,marginBottom:15}}>公历日期<input type="date" value={solarDate} onChange={e=>{setSolarDate(e.target.value);setDone(false);}} style={{...input,display:'block',marginTop:7}}/></label>:
+          <div className="lr-grid" style={{display:'grid',gridTemplateColumns:'repeat(3,minmax(0,1fr))',gap:12,marginBottom:15}}><label style={{fontSize:13}}>农历月份<input type="number" min={1} max={12} value={lunarMonth} onChange={e=>{setLunarMonth(Number(e.target.value));setDone(false);}} style={{...input,display:'block',marginTop:7}}/></label><label style={{fontSize:13}}>农历日期<input type="number" min={1} max={30} value={lunarDay} onChange={e=>{setLunarDay(Number(e.target.value));setDone(false);}} style={{...input,display:'block',marginTop:7}}/></label><label style={{fontSize:13,alignSelf:'end',paddingBottom:12}}><input type="checkbox" checked={isLeap} onChange={e=>{setIsLeap(e.target.checked);setDone(false);}}/> 闰月</label></div>}
+          <label style={{display:'block',fontSize:13}}>当地钟表时间<select value={hour} onChange={e=>{setHour(Number(e.target.value));setDone(false);}} style={{...input,display:'block',marginTop:7}}>{Array.from({length:24},(_,h)=><option key={h} value={h}>{String(h).padStart(2,'0')}:00–{String(h).padStart(2,'0')}:59（{HOURS[Math.floor(((h+1)%24)/2)]}时）</option>)}</select></label>
+          <p style={{fontSize:12,color:'var(--tx-3)',lineHeight:1.8}}>默认：23:00–00:59 都属子时；公历选择的日期在 23:00 不自动加一天。需要按其他口径换日，可展开下方设置。</p>
+        </>:<div className="lr-grid" style={{display:'grid',gridTemplateColumns:'repeat(3,minmax(0,1fr))',gap:12}}>{numbers.map((n,i)=><label key={i} style={{fontSize:13}}>第{i+1}个数字<input type="number" min={1} max={1000000} value={n} onChange={e=>changeNumber(i,Number(e.target.value))} style={{...input,display:'block',marginTop:7}}/></label>)}<p style={{fontSize:12,color:'var(--tx-3)',gridColumn:'1/-1'}}>从大安起第一数；下一数均从上一落宫起，把当前宫计作第1位。数字起课为民间变体，不等同于《天纪》月日时案例。</p></div>}
+        <details style={{borderTop:'1px solid var(--bdr)',marginTop:18,paddingTop:14}} open={showVariants} onToggle={e=>setShowVariants((e.currentTarget as HTMLDetailsElement).open)}>
+          <summary style={{cursor:'pointer',fontSize:13,color:'var(--ac)'}}>流派设置（默认保持《天纪》教学口径）</summary>
+          <div className="lr-grid" style={{display:'grid',gridTemplateColumns:'repeat(3,minmax(0,1fr))',gap:12,marginTop:14}}>
+            <label style={{fontSize:12}}>起月起宫<select value={startMode} onChange={e=>{setStartMode(e.target.value as StartMode);setDone(false);}} style={{...input,display:'block',marginTop:6}}><option value="daan">正月起大安（默认）</option><option value="liulian">正月起留连（其他口传）</option></select></label>
+            <label style={{fontSize:12}}>闰月口径<select value={leapMode} onChange={e=>{setLeapMode(e.target.value as LeapMode);setDone(false);}} style={{...input,display:'block',marginTop:6}}><option value="same">按本月序数（默认）</option><option value="next">按下一月序数</option></select></label>
+            <label style={{fontSize:12}}>23点换日口径<select value={ziMode} onChange={e=>{setZiMode(e.target.value as ZiMode);setDone(false);}} style={{...input,display:'block',marginTop:6}}><option value="same-day">不换日（默认）</option><option value="next-day">23点进入次日（变体）</option></select></label>
+          </div>
+          <p style={{fontSize:12,color:'var(--tx-3)',lineHeight:1.8}}>这些不是已证实的标准统一算法；换一种口传规则，起课结果可能不同。手填闰月请自行核对实际历法。</p>
+        </details>
+        <label style={{display:'block',fontSize:13,marginTop:18}}>占问分类<select value={topic} onChange={e=>setTopic(e.target.value)} style={{...input,display:'block',marginTop:7}}>{['一般事项','感情沟通','工作学业','出行办事','财务合作'].map(t=><option key={t}>{t}</option>)}</select></label>
+        <label style={{display:'block',fontSize:13,marginTop:14}}>所问事情（选填）<input value={question} onChange={e=>setQuestion(e.target.value)} maxLength={150} placeholder="例如：某个计划接下来如何推进？" style={{...input,display:'block',marginTop:7}}/></label>
+        <button type="button" onClick={()=>setDone(true)} style={{marginTop:19,padding:'12px 30px',border:0,borderRadius:10,background:'linear-gradient(135deg,#976214,#cc9630)',color:'#fff',fontWeight:700,cursor:'pointer'}}>开始起课</button>
+        {done&&'error' in state&&<p role="alert" style={{fontSize:13,color:'#c33'}}>{state.error}</p>}
+      </section>
+      {current&&<section style={{...panel,marginTop:18}}>
+        <h2 style={{margin:'0 0 9px',fontSize:18,color:'var(--ac)'}}>本次起课 · {SIX[current.result.endIndex].name}</h2>
+        <p style={{fontSize:12,color:'var(--tx-3)',lineHeight:1.8}}>{current.detail}</p>
+        {question&&<p style={{fontSize:13,color:'var(--tx-2)'}}>所问：{question}</p>}
+        <div className="lr-grid" style={{display:'grid',gridTemplateColumns:'repeat(3,minmax(0,1fr))',gap:12,marginTop:14}}>{[current.result.monthIndex,current.result.dayIndex,current.result.endIndex].map((index,i)=><div key={i} style={{border:'1px solid var(--bdr)',borderRadius:12,padding:15,textAlign:'center',background:'var(--bg-card)'}}><div style={{fontSize:12,color:'var(--tx-3)'}}>{['起月 · 背景','起日 · 过程','起时 · 末宫'][i]}</div><div style={{fontSize:25,fontWeight:700,marginTop:7,color:SIX[index].colour}}>{SIX[index].name}</div><div style={{fontSize:12,marginTop:5,color:'var(--tx-3)'}}>{SIX[index].deity} · {SIX[index].wuxing}</div></div>)}</div>
+        <h3 style={{fontSize:15,marginTop:23}}>完整顺数过程</h3><ol style={{fontSize:13,lineHeight:2,color:'var(--tx-2)'}}>{current.result.steps.map((s,i)=><li key={i}>{s}</li>)}</ol>
+        <div style={{padding:16,borderLeft:`3px solid ${SIX[current.result.endIndex].colour}`,background:'var(--bg-card)',borderRadius:8}}>
+          <strong>末宫：{SIX[current.result.endIndex].name} · 传统分类「{SIX[current.result.endIndex].grade}」</strong>
+          <p style={{fontSize:13,color:'var(--tx-2)',lineHeight:1.8,margin:'9px 0 0'}}>传统象意：{SIX[current.result.endIndex].image}。{displayReading(current.result.endIndex,topic)}</p>
         </div>
-        <section style={panel}>
-          <div style={{ display: 'flex', gap: 10, marginBottom: 22 }}>
-            {([['date','月日时起课'],['number','三数字起课']] as const).map(([value,label]) => (
-              <button key={value} type="button" onClick={() => { setMode(value); setComputed(false); }}
-                style={{ border: '1px solid var(--bdr)', padding: '10px 17px', borderRadius: 9, background: mode === value ? 'var(--ac)' : 'var(--bg-card)', color: mode === value ? '#fff' : 'var(--tx-2)', cursor: 'pointer' }}>{label}</button>
-            ))}
-          </div>
-          {mode === 'date' ? <>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginBottom: 18 }}>
-              <label style={{ fontSize: 13 }}><input type="radio" checked={calendar === 'solar'} onChange={() => { setCalendar('solar'); setComputed(false); }}/> 公历日期自动换算</label>
-              <label style={{ fontSize: 13 }}><input type="radio" checked={calendar === 'lunar'} onChange={() => { setCalendar('lunar'); setComputed(false); }}/> 手动输入农历</label>
-            </div>
-            {calendar === 'solar' ? <label style={{ display: 'block', fontSize: 13, marginBottom: 16 }}>公历日期<input type="date" value={solarDate} onChange={e => { setSolarDate(e.target.value); setComputed(false); }} style={{ ...formInput, marginTop: 7 }}/></label>
-              : <div className="xlr-two" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 16 }}>
-                <label style={{ fontSize: 13 }}>农历月（1–12）<input type="number" min={1} max={12} value={lunarMonth} onChange={e => { setLunarMonth(Number(e.target.value)); setComputed(false); }} style={{ ...formInput, marginTop: 7 }}/></label>
-                <label style={{ fontSize: 13 }}>农历日（1–30）<input type="number" min={1} max={30} value={lunarDay} onChange={e => { setLunarDay(Number(e.target.value)); setComputed(false); }} style={{ ...formInput, marginTop: 7 }}/></label>
-              </div>}
-            <label style={{ display: 'block', fontSize: 13 }}>当地钟表时间（24 小时制）<select value={hour} onChange={e => { setHour(Number(e.target.value)); setComputed(false); }} style={{ ...formInput, marginTop: 7 }}>
-              {Array.from({ length: 24 }, (_, h) => <option value={h} key={h}>{String(h).padStart(2,'0')}:00–{String(h).padStart(2,'0')}:59</option>)}
-            </select></label>
-            <p style={{ fontSize: 12, marginTop: 12, color: 'var(--tx-3)' }}>子时按 23:00–00:59；本版使用输入的公历日期换算农历日，不自动执行“23 点换次日”的其他流派规则。</p>
-          </> : <div className="xlr-three" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14 }}>
-            {[[num1,setNum1,'第一数'],[num2,setNum2,'第二数'],[num3,setNum3,'第三数']].map(([num,setter,label]) => (
-              <label key={String(label)} style={{ fontSize: 13 }}>{String(label)}<input type="number" min={1} max={9999} value={num as number} onChange={e => { (setter as (v:number)=>void)(Number(e.target.value)); setComputed(false); }} style={{ ...formInput, marginTop: 7 }}/></label>
-            ))}
-          </div>}
-          <label style={{ display: 'block', fontSize: 13, marginTop: 18 }}>所问事情（选填）<input type="text" maxLength={120} placeholder="例如：某项计划推进得如何？" value={question} onChange={e => setQuestion(e.target.value)} style={{ ...formInput, marginTop: 7 }}/></label>
-          <button type="button" onClick={() => setComputed(true)} style={{ marginTop: 20, padding: '12px 34px', border: 0, borderRadius: 10, background: 'linear-gradient(135deg,#9a6210,#c88020)', color: '#fff', cursor: 'pointer', fontWeight: 600 }}>开始起课</button>
-          {computed && 'error' in state && <p role="alert" style={{ color: '#dc2626', fontSize: 13 }}>{state.error}</p>}
-        </section>
-        {show && !('error' in state) && <section style={{ ...panel, marginTop: 18 }}>
-          <h2 style={{ fontSize: 17, marginTop: 0, color: 'var(--ac)' }}>本次起课结果</h2>
-          <p style={{ fontSize: 13, color: 'var(--tx-3)' }}>{state.summary}</p>
-          {question && <p style={{ fontSize: 13, color: 'var(--tx-2)' }}>所问：{question}</p>}
-          <div className="xlr-three" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginTop: 16 }}>
-            {([state.a,state.b,state.c] as const).map((index, step) => <div key={step} style={{ border: '1px solid var(--bdr)', borderRadius: 12, padding: 17, textAlign: 'center', background: 'var(--bg-card)' }}>
-              <div style={{ fontSize: 12, color: 'var(--tx-3)' }}>{['起月 · 背景','起日 · 过程','起时 · 结果'][step]}</div>
-              <div style={{ fontSize: 24, fontWeight: 700, padding: '8px 0', color: PALACES[index].color }}>{PALACES[index].name}</div>
-              <div style={{ fontSize: 12, color: 'var(--tx-3)' }}>五行：{PALACES[index].element}</div>
-            </div>)}
-          </div>
-          <div style={{ borderLeft: `3px solid ${PALACES[state.c].color}`, marginTop: 22, paddingLeft: 16 }}>
-            <div style={{ fontWeight: 700, marginBottom: 6 }}>末宫：{PALACES[state.c].name}</div>
-            <p style={{ margin: '4px 0', fontSize: 14, lineHeight: 1.8 }}>{PALACES[state.c].meaning}</p>
-            <p style={{ margin: '4px 0', fontSize: 13, lineHeight: 1.8, color: 'var(--tx-3)' }}>{PALACES[state.c].hint}</p>
-          </div>
-          <p style={{ fontSize: 12, lineHeight: 1.8, marginTop: 18, color: 'var(--tx-3)' }}>计算说明：三个数分别在上次落点所在宫起数，第一数从大安起；每一步都将起点视为“1”，顺排六宫。各派闰月和子时换日存在分歧，本版使用上方注明的规则。结果仅供传统文化学习，不应替代现实判断。</p>
-        </section>}
-        <section style={{ ...panel, marginTop: 18 }}>
-          <h2 style={{ fontSize: 15, marginTop: 0 }}>六宫顺序</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 10 }}>
-            {PALACES.map((p, i) => <div key={p.name} style={{ padding: 12, border: '1px solid var(--bdr)', borderRadius: 10, fontSize: 12 }}><strong style={{ color: p.color }}>{i+1}. {p.name}</strong><div style={{ color: 'var(--tx-3)', marginTop: 5 }}>{p.meaning}</div></div>)}
-          </div>
-        </section>
-      </main>
-      <style>{`@media(max-width:620px){.xlr-three{grid-template-columns:1fr!important}.xlr-two{grid-template-columns:1fr!important}}`}</style>
-    </div>
-  );
+        <p style={{fontSize:12,color:'var(--tx-3)',marginTop:16,lineHeight:1.8}}>六宫的吉阻分类是传统文化语境，不具有预测科学效力。不要将起课结果视作他人的心理、婚姻结局、疾病或财富事实。</p>
+      </section>}
+      <section style={{...panel,marginTop:18}}><h2 style={{fontSize:16,margin:'0 0 16px'}}>六宫 · 掌诀位置</h2><div className="lr-grid" style={{display:'grid',gridTemplateColumns:'repeat(3,minmax(0,1fr))',gap:10}}>{SIX.map((p,i)=><div key={p.name} style={{padding:13,border:`1px solid ${current?.result.endIndex===i?p.colour:'var(--bdr)'}`,borderRadius:10}}><strong style={{color:p.colour}}>{i+1}. {p.name}</strong><p style={{fontSize:12,color:'var(--tx-3)',margin:'7px 0 3px'}}>{p.position} · {p.wuxing} · {p.deity}</p><p style={{fontSize:12,color:'var(--tx-2)',lineHeight:1.6,margin:0}}>{p.image}</p></div>)}</div></section>
+      <section style={{...panel,marginTop:18}}><h2 style={{fontSize:15,marginTop:0}}>可复核示例与资料来源</h2><p style={{fontSize:13,lineHeight:1.85,color:'var(--tx-2)'}}>农历四月初五戌时 → 赤口、留连、空亡（末宫空亡）。农历九月廿二戌时 → 速喜、空亡、赤口。三数字 1、1、1 → 大安、大安、大安。</p>{SOURCES.map(s=><p key={s.url} style={{fontSize:12}}><a target="_blank" rel="noreferrer" href={s.url} style={{color:'var(--ac)'}}>{s.label} ↗</a></p>)}</section>
+    </main>
+    <style>{`@media(max-width:670px){.lr-grid{grid-template-columns:1fr!important}}`}</style>
+  </div>;
 }
