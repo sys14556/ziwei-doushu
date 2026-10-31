@@ -7,6 +7,7 @@ import { formToBirthInfo } from '@/lib/ziwei/share';
 import { generateChart } from '@/lib/ziwei/algorithm';
 import { useTheme } from '@/components/ThemeProvider';
 import { buildStudy, TWELVE, threeWay, type Palace, type Finding, type StudyReport } from '@/lib/ziwei/heming-rules';
+import TianjiEvidence from '@/components/TianjiEvidence';
 
 const FOCUSES = ['伴侣婚恋','朋友相处','合伙合作','亲子家人'];
 const SOURCES=[
@@ -92,6 +93,10 @@ export default function HemingPage(){
             <section><h3 style={{fontSize:17,color:'var(--ac)'}}>一、甲方重点宫位及主星象意</h3><RuleList items={report.findingsA}/></section>
             <section><h3 style={{fontSize:17,color:'var(--ac)'}}>二、乙方重点宫位及主星象意</h3><RuleList items={report.findingsB}/></section>
             <section><h3 style={{fontSize:17,color:'var(--ac)'}}>三、双盘互动议题</h3><RuleList items={report.cross}/></section>
+            <TianjiEvidence mode="heming" terms={[...new Set([...report.a,...report.b]
+              .filter(p=>['命宫','夫妻宫','福德宫','迁移宫','官禄宫','财帛宫'].includes(p.name))
+              .flatMap(p=>[p.name,...p.majors,...p.four])
+              .concat(['婚姻','三方四正']))].slice(0,24)}/>
           </div>}
           {tab==='palaces'&&<PalaceTable report={report}/>}
           {tab==='sources'&&<div style={{display:'grid',gap:12,fontSize:13,lineHeight:1.8}}>
