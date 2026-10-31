@@ -228,6 +228,8 @@ onSubmit({
   longitude: form.province ? form.longitude : undefined,
 });
 
+  };
+
   // ─── 样式变量 ────────────────────────────────────────────
   const bg = isDark ? 'rgba(8,16,40,0.85)' : 'rgba(255,255,255,0.92)';
   const border = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(200,160,60,0.2)';
